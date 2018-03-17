@@ -12,7 +12,8 @@ import hashlib
 # need to use python-requests instead of the dumm original urlopen function
 import requests
 
-
+APIKey = '4Nn509LkdkK3X3akxXi0yZIaxVKUOOeBbsZFeR2GNvcfN9qoHz9o'
+privateKey = 'TxvqzJzXOPr5BdwIclESOrF38sITgLdPPxuNyNYdk2PfmUVThKFi'
 
 # basic test with timestamp
 baseUrl = 'https://api.binance.com'
