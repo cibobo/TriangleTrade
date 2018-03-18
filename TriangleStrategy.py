@@ -321,55 +321,56 @@ class TriangleStrategy(object):
         print(json.dumps(self.limit_order, indent=4))
 
     def writeLog(self):
-        self.file_out = open('C:/Users/Cibobo/Documents/Coins/Python/balance.txt','w+')
-        self.file_out.write(self.price, " @", self.price_time)
+        file_out = open('TradingInfo.log','w+')
+        file_out.write(str(datetime.datetime.now())+'\n')
+        file_out.write(str(self.price) + " @" + str(self.price_time) + '\n')
 
-        self.file_out.write("Fill the triangle trading condition ----------------------------------")
-        self.file_out.write("Calculated Buy Symbol: ", self.cal_buy_volumn_symbol)
-        self.file_out.write("Real Buy Symbol: ", self.real_buy_volumn_symbol)
-        self.file_out.write("Calculated Trading Between: ", self.cal_trading_volumn_between)
-        self.file_out.write("Real Trading Between: ",self.real_trading_volumn_between)
+        file_out.write("Fill the triangle trading condition ----------------------------------")
+        file_out.write("Calculated Buy Symbol: %f \n" %(self.cal_buy_volumn_symbol))
+        file_out.write("Real Buy Symbol: %f \n" %(self.real_buy_volumn_symbol))
+        file_out.write("Calculated Trading Between: %f \n"  %(self.cal_trading_volumn_between))
+        file_out.write("Real Trading Between: %f \n" %(self.real_trading_volumn_between))
 
-        self.file_out.write("Trading begin -------------------------------@", self.trading_begin_time)
-        self.file_out.write("Step 1:")
-        json.dump(self.response_1, self.file_out)
-        self.file_out.write("Step 2:")
-        json.dump(self.response_2, self.file_out)
-        self.file_out.write("Step 3:")
-        json.dump(self.response_3, self.file_out)
-        self.file_out.write("Trading end -------------------------------@", self.trading_end_time)
+        file_out.write("Trading begin -------------------------------@ %f \n" %(self.trading_begin_time))
+        file_out.write("Step 1:\n")
+        json.dump(self.response_1, file_out)
+        file_out.write("Step 2:\n")
+        json.dump(self.response_2, file_out)
+        file_out.write("Step 3:\n")
+        json.dump(self.response_3, file_out)
+        file_out.write("Trading end -------------------------------@ %f \n" %(self.trading_end_time))
 
-        self.file_out.write("Calculated Balance:")
-        if self.price['trig_win'] < 0.995:
-            buy_volumn = self.real_trading_volumn_between*self.price['rate']
-            sell_volumn = self.real_buy_volumn_symbol*self.price['direct_price']
-            between_change = self.real_trading_volumn_between-self.cal_trading_volumn_between          
-        else:
-            buy_volumn = self.real_buy_volumn_symbol*self.price['direct_price']
-            sell_volumn = self.real_trading_volumn_between*self.price['rate']
+        file_out.write("Calculated Balance:\n")
+        if self.price['BBS_win'] > self.trigger_threshold:
+            buy_volumn = self.real_trading_volumn_between*self.price['rate_buy']
+            sell_volumn = self.real_buy_volumn_symbol*self.price['direct_sell']
+            between_change = self.real_trading_volumn_between-self.cal_trading_volumn_between            
+        if self.price['BSS_win'] > self.trigger_threshold:
+            buy_volumn = self.real_buy_volumn_symbol*self.price['direct_buy']
+            sell_volumn = self.real_trading_volumn_between*self.price['rate_sell']
             between_change = self.cal_trading_volumn_between-self.real_trading_volumn_between
 
-        self.file_out.write("Buy volumn: ", buy_volumn)
-        self.file_out.write("Sell volumn: ", sell_volumn) 
-        self.file_out.write("Between balence: ", between_change)
-        self.file_out.write("Win: ", sell_volumn-buy_volumn+between_change*self.price['rate'])
+        file_out.write("Buy volumn: %f \n" %(buy_volumn))
+        file_out.write("Sell volumn: %f \n" %(sell_volumn))
+        file_out.write("Between balence: %f \n" %(between_change))
+        file_out.write("Win: %f \n" %(sell_volumn-buy_volumn+between_change*self.price['rate_sell']))
 
-        self.file_out.write("Real Balance:")
-        self.file_out.write("Before trading --------------------------------")
-        self.file_out.write(self.begin_balance)
-        self.file_out.write("After trading --------------------------------")
+        file_out.write("Real Balance:\n")
+        file_out.write("Before trading --------------------------------\n")
+        json.dump(self.begin_balance, file_out)
+        file_out.write("\nAfter trading --------------------------------\n")
         current_balance = BinanceRestLib.getBalance(self.balance_coin_list,self.time_offset)
-        self.file_out.write(current_balance)
-        self.file_out.write()
+        json.dump(current_balance, file_out)
+        file_out.write("\n")
 
         # calculate balance change
-        coin_0_change = current_balance[self.coin[0]] - self.begin_balance[self.coin[0]]
-        coin_1_change = current_balance[self.coin[1]] - self.begin_balance[self.coin[1]]
-        self.file_out.write("Coin %s change is: %f" %(self.coin[0], coin_0_change))
-        self.file_out.write("Coin %s change is: %f" %(self.coin[1], coin_1_change))
-        self.file_out.write("Win: ", coin_0_change + coin_1_change*self.price['rate'])
+        coin_0_change = float(current_balance[self.coin[0]]) - float(self.begin_balance[self.coin[0]])
+        coin_1_change = float(current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
+        file_out.write("Coin %s change is: %f \n" %(self.coin[0], coin_0_change))
+        file_out.write("Coin %s change is: %f \n" %(self.coin[1], coin_1_change))
+        file_out.write("Win: %f \n" %(coin_0_change + coin_1_change*self.price['rate_sell']))
 
-        self.file_out.close()
+        file_out.close()
 
     def printLog(self):
         print(self.price, " @", self.price_time)
@@ -475,20 +476,14 @@ print("Begin Triangle Trading @", int(time.time()*1000)+test.time_offset)
 
 while True:
     test.getTrianglePrice()
-    # result = test.triangleTrading()  
     result = test.triangleTradingLimit()
     if result == 1:
         trading_index += 1
         print(trading_index, " trading is completed --------------------------------------")
         test.printLog()
+        test.writeLog()
         if trading_index > 2: 
             break
-    #     test.printLog()
-    # print(test.price)
-    # if test.price['BSS_win']>1.002 or test.price['BBS_win']>1.002:
-    #     print(test.price)
-    #     print("Bingo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    #     break
     # resnycho time offset in every 10min
     if time.time()-begin_time > 600:
         test.time_offset = BinanceRestLib.getServerTimeOffset()
@@ -498,4 +493,5 @@ while True:
     time.sleep(1)
 
 test.printLog()
+test.writeLog()
 print("end")
