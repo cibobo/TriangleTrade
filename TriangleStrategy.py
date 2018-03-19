@@ -260,10 +260,17 @@ class TriangleStrategy(object):
             # check the order state
             self.limit_order = BinanceRestLib.getSignedService("order",order_param)
             # wait until the limit order is filled
-            while self.limit_order['status'] != "FILLED":
+            # wait until the limit order is filled
+            while True:
                 time.sleep(1)
                 print("Waiting limit sell for bewteen coin ...")
                 self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+                if 'status' in self.limit_order:
+                    if self.limit_order['status'] == "FILLED":
+                        break
+                else:
+                    print("Unknown status:")
+                    print(json.dumps(self.limit_order, indent=4))
 
             print(json.dumps(self.limit_order, indent=4))
             
