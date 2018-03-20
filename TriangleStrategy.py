@@ -49,8 +49,10 @@ class TriangleStrategy(object):
     
     def getExchangeInfo(self):
         exchangeInfo = BinanceRestLib.getExchangeInfo()
-
+        
+        # minimum trading volumn unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
         self.minQty = []
+        # minimum trading price unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
         self.minPrice = []
 
         # get exchange info from symbol|ref_coin[0]
@@ -217,6 +219,71 @@ class TriangleStrategy(object):
         self.trading_end_time = int(time.time()*1000)+self.time_offset
         return 0
 
+    # Use limit Direct Buy and also limit sell of between coin
+    def triangleTradingLimitTwice(self):
+        # recalculate the direct buy price with sell price (bid_1) + minPrice allowed by platform
+        self.price['direct_buy'] = round(float(self.price['direct_sell_1'] + self.minPrice[0]),self.price_precise[0])
+        # recalculate the between sell price with buy price (ask_1) - minPrice allowed by platform
+        self.price['between_sell'] = round(float(self.price['between_buy_1'] - self.minPrice[1]),self.price_precise[1])
+        # Calculate BSS price and win
+        self.price['BSS_price'] = self.price['between_sell']*self.price['rate_sell'] 
+        self.price['BSS_win'] = self.price['BSS_price']/self.price['direct_buy']
+
+        print(self.price, " @", self.price_time)
+
+        # in case the BSS minuse handling fee (0.15%) is still cheeper
+        if self.price['BSS_win'] > self.trigger_threshold:
+            self.trading_begin_time = int(time.time()*1000)+self.time_offset
+
+            # because of the minimum quantity of the trading, calculate how much target Coin(symbol) should be buy with triangle price
+            self.cal_buy_volumn_symbol = self.buy_volumn/self.price['direct_buy']
+            self.real_buy_volumn_symbol = (int(self.cal_buy_volumn_symbol/self.minQty[0]))*self.minQty[0]
+
+            # caclulate how much between reference coin is needed based on real buying volumn
+            self.cal_trading_volumn_between = self.real_buy_volumn_symbol*self.price['between_sell']
+            # use round up integer to calculate the needed between reference coin volumn
+            self.real_trading_volumn_between = (math.ceil(self.cal_trading_volumn_between/self.minQty[2]))*self.minQty[2]
+
+            # buy target coin with direct reference coin in Limit Trading
+            self.response_1 = BinanceRestLib.createLimitOrder(self.symbol,self.coin[0],"BUY",self.real_buy_volumn_symbol,self.price['direct_buy'],self.time_offset)
+
+            print(json.dumps(self.response_1, indent=4))
+            
+            # get the order id
+            orderId = self.response_1['orderId']
+
+            order_param = {}
+            order_param['symbol'] = self.symbol + self.coin[0]
+            order_param['orderId'] = orderId
+            # oder_param['recvWindow'] = 5000
+            order_param['timestamp'] = int(time.time()*1000)+self.time_offset
+            # wait a small time interval, until the limit trad is taken by the others
+            for i in range(2):
+                self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+                # if the order is filled, complete the triangle trading
+                if self.limit_order['status'] == "FILLED":
+                    # finish the selling process
+                    self.triangleTradingSellLimit()
+                    
+                    return 1
+
+                print("End of %dth loop" %(i))
+
+            # if the limit trading is not taken by others, cancel it
+            self.cancel_limit_order = BinanceRestLib.cancelOrder(self.symbol,self.coin[0],orderId,self.time_offset)
+            print(json.dumps(self.cancel_limit_order, indent=4))
+            
+            # some times the trading is already executed, in this case a error code will be returned
+            if 'code' in self.cancel_limit_order:
+                print("Special Case: the trading is already filled. Complete the rest selling phase")
+                # finish the selling process
+                self.triangleTradingSellLimit()
+
+                return 1
+
+        self.trading_end_time = int(time.time()*1000)+self.time_offset
+        return 0
+    
     # check whether with there is still win rate with the current sell price, if not create a limit order instead of direct sell
     def triangleTradingSell(self, price_thread):
         # synchro with the tread
@@ -280,9 +347,43 @@ class TriangleStrategy(object):
         # fee.append(self.real_trading_volumn_between*fee_standard*self.price['rate_sell'])
         
         self.trading_end_time = int(time.time()*1000)+self.time_offset
+    
+    # the sell phase always with limit trading on between coin    
+    def triangleTradingSellLimit(self):
+        # create limit trading for between coin
+        self.response_2 = BinanceRestLib.createLimitOrder(self.symbol,self.coin[1],"SELL",self.real_buy_volumn_symbol,self.price['between_sell'],self.time_offset)
+
+        # get the order id
+        orderId = self.response_2['orderId']
+
+        order_param = {}
+        order_param['symbol'] = self.symbol + self.coin[1]
+        order_param['orderId'] = orderId
+        order_param['timestamp'] = int(time.time()*1000)+self.time_offset
+        # check the order state
+        self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+        # wait until the limit order is filled
+        while True:
+            time.sleep(1)
+            print("Waiting limit sell for bewteen coin ...")
+            order_param['timestamp'] = int(time.time()*1000)+self.time_offset
+            self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+            if 'status' in self.limit_order:
+                if self.limit_order['status'] == "FILLED":
+                    break
+            else:
+                print("Unknown status:")
+                print(json.dumps(self.limit_order, indent=4))
+
+        print(json.dumps(self.limit_order, indent=4))
+
+        # sell between refrence coin with market price
+        self.response_3 = BinanceRestLib.createMarketOrder(self.coin[1],self.coin[0],"SELL",self.real_trading_volumn_between,self.time_offset)
+
+        self.trading_end_time = int(time.time()*1000)+self.time_offset
 
     def writeLog(self):
-        file_out = open('TradingInfo.log','w+')
+        file_out = open('TradingInfo.log','a')
         file_out.write(str(datetime.datetime.now())+'\n')
         file_out.write(str(self.price) + " @" + str(self.price_time) + '\n')
 
@@ -437,13 +538,13 @@ print("Begin Triangle Trading @", int(time.time()*1000)+test.time_offset)
 
 while True:
     test.getTrianglePrice()
-    result = test.triangleTradingLimit()
+    result = test.triangleTradingLimitTwice()
     if result == 1:
         trading_index += 1
         print(trading_index, " trading is completed --------------------------------------")
         test.printLog()
         test.writeLog()
-        if trading_index > 2: 
+        if trading_index > 5: 
             break
     # resnycho time offset in every 10min
     if time.time()-begin_time > 600:
