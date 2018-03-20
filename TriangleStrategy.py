@@ -226,7 +226,7 @@ class TriangleStrategy(object):
         # recalculate the direct buy price with sell price (bid_1) + minPrice allowed by platform
         self.price['direct_buy'] = round(float(self.price['direct_sell_1'] + self.minPrice[0]),self.price_precise[0])
         # recalculate the between sell price with buy price (ask_1) - minPrice allowed by platform
-        self.price['between_sell'] = round(float(self.price['between_buy_1'] - self.minPrice[1]),self.price_precise[1])
+        self.price['between_sell'] = round(float(self.price['between_buy_1'] - self.minPrice[1]*3),self.price_precise[1])
         # Calculate BSS price and win
         self.price['BSS_price'] = self.price['between_sell']*self.price['rate_sell'] 
         self.price['BSS_win'] = self.price['BSS_price']/self.price['direct_buy']
