@@ -13,7 +13,7 @@ class TriangleStrategy(object):
     minNotional = 0.01
 
     # standard volumn used for triangle strategy
-    buy_volumn = minNotional * 1.5
+    buy_volumn = minNotional * 1.8
 
     # minimum trading volumn unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
     # minQty = [0.01, 0.01, 0.01]
@@ -264,6 +264,7 @@ class TriangleStrategy(object):
             while True:
                 time.sleep(1)
                 print("Waiting limit sell for bewteen coin ...")
+                order_param['timestamp'] = int(time.time()*1000)+self.time_offset
                 self.limit_order = BinanceRestLib.getSignedService("order",order_param)
                 if 'status' in self.limit_order:
                     if self.limit_order['status'] == "FILLED":
