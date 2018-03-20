@@ -108,6 +108,8 @@ class TriangleStrategy(object):
 
         self.price['between_buy'] = thread2.price['asks_vol']
         self.price['between_sell'] = thread2.price['bids_vol']
+        # Add buy_1 price for limit between sell
+        self.price['between_buy_1'] = thread2.price['asks_1']
 
         self.price['rate_buy'] = thread3.price['asks_vol']
         self.price['rate_sell'] = thread3.price['bids_vol']
