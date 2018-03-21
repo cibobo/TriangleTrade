@@ -35,6 +35,7 @@ class TriangleStrategy(object):
         self.balance_coin_list = coin
         self.balance_coin_list.append(symbol)
         self.begin_balance = BinanceRestLib.getBalance(self.balance_coin_list, self.time_offset)
+        self.last_balance = self.begin_balance
         self.saveAccountInfo()
 
         # get needed Exchange Info
@@ -432,7 +433,15 @@ class TriangleStrategy(object):
         coin_1_change = float(current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
         file_out.write("Coin %s change is: %f \n" %(self.coin[0], coin_0_change))
         file_out.write("Coin %s change is: %f \n" %(self.coin[1], coin_1_change))
-        file_out.write("Win: %f \n" %(coin_0_change + coin_1_change*self.price['rate_sell']))
+        file_out.write("Win since beginning: %f \n" %(coin_0_change + coin_1_change*self.price['rate_sell']))
+        
+        # calculate balance change to the last trade
+        coin_0_change = float(current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
+        coin_1_change = float(current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
+        file_out.write("Coin %s change is: %f \n" %(self.coin[0], coin_0_change))
+        file_out.write("Coin %s change is: %f \n" %(self.coin[1], coin_1_change))
+        file_out.write("Win since last trade: %f \n" %(coin_0_change + coin_1_change*self.price['rate_sell']))
+        self.last_balance = current_balance
 
         file_out.close()
 
@@ -484,7 +493,15 @@ class TriangleStrategy(object):
         coin_1_change = float(current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
         print("Coin %s change is: %f" %(self.coin[0], coin_0_change))
         print("Coin %s change is: %f" %(self.coin[1], coin_1_change))
-        print("Win: ", coin_0_change + coin_1_change*self.price['rate_sell'])
+        print("Win since beginning: ", coin_0_change + coin_1_change*self.price['rate_sell'])
+        
+        # calculate balance change to the last trade
+        coin_0_change = float(current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
+        coin_1_change = float(current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
+        print("Coin %s change is: %f" %(self.coin[0], coin_0_change))
+        print("Coin %s change is: %f" %(self.coin[1], coin_1_change))
+        print("Win since last trade: ", coin_0_change + coin_1_change*self.price['rate_sell'])
+        self.last_balance = current_balance
 
 
 def checkBestTarget():
