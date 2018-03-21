@@ -13,7 +13,7 @@ class TriangleStrategy(object):
     minNotional = 0.01
 
     # standard volumn used for triangle strategy
-    buy_volumn = minNotional * 1.8
+    buy_volumn = minNotional * 2
 
     # minimum trading volumn unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
     # minQty = [0.01, 0.01, 0.01]
@@ -353,6 +353,12 @@ class TriangleStrategy(object):
     
     # the sell phase always with limit trading on between coin    
     def triangleTradingSellLimit(self):
+        # sell between refrence coin with market price firstly
+        self.response_3 = BinanceRestLib.createMarketOrder(self.coin[1],self.coin[0],"SELL",self.real_trading_volumn_between,self.time_offset)
+        print(json.dumps(self.response_3, indent=4))
+
+        print("begin between sell")
+        
         # create limit trading for between coin
         self.response_2 = BinanceRestLib.createLimitOrder(self.symbol,self.coin[1],"SELL",self.real_buy_volumn_symbol,self.price['between_sell'],self.time_offset)
 
@@ -379,10 +385,7 @@ class TriangleStrategy(object):
                 print(json.dumps(self.limit_order, indent=4))
 
         print(json.dumps(self.limit_order, indent=4))
-
-        # sell between refrence coin with market price
-        self.response_3 = BinanceRestLib.createMarketOrder(self.coin[1],self.coin[0],"SELL",self.real_trading_volumn_between,self.time_offset)
-
+        
         self.trading_end_time = int(time.time()*1000)+self.time_offset
 
     def writeLog(self):
@@ -563,7 +566,7 @@ while True:
         print(trading_index, " trading is completed --------------------------------------")
         test.printLog()
         test.writeLog()
-        if trading_index > 5: 
+        if trading_index > 2: 
             break
     # resnycho time offset in every 10min
     if time.time()-begin_time > 600:
