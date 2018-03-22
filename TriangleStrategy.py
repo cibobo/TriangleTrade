@@ -301,28 +301,29 @@ class TriangleStrategy(object):
             if (float(self.cancel_order['executedQty']) < float(self.cancel_order['origQty'])) and (float(self.cancel_order['executedQty'])*cancel_sell_price > self.minNotional):
                    
                 # create a limit trade to sell all target coin back to coin[0], with the sell_1 price
-                self.cancel_order = BinanceRestLib.createLimitOrder(self.symbol,self.coin[0],"SELL",self.limit_order['executedQty'],cancel_sell_price,self.time_offset)
+                self.limit_order = BinanceRestLib.createLimitOrder(self.symbol,self.coin[0],"SELL",self.cancel_order['executedQty'],cancel_sell_price,self.time_offset)
                 
-                order_param['orderId'] = self.cancel_order['orderId']
+                order_param['orderId'] = self.limit_order['orderId']
                 # wait until the trading is completed
                 while True:
                     time.sleep(1)
                     # print("Waiting limit sell for target coin ...")
                     order_param['timestamp'] = int(time.time()*1000)+self.time_offset
-                    self.cancel_order = BinanceRestLib.getSignedService("order",order_param)
-                    if 'status' in self.cancel_order:
-                        if self.cancel_order['status'] == "FILLED":
+                    self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+                    if 'status' in self.limit_order:
+                        if self.limit_order['status'] == "FILLED":
                             break
                         # if the trading is cancelled manually, wait 5 min for the next rund
-                        if self.cancel_order['status'] == "CANCELED":
+                        if self.limit_order['status'] == "CANCELED":
                             print("Cancel the trading and sell the coin manually")
                             time.sleep(300)
                             break
                     else:
                         print("Unknown status:")
-                        print(json.dumps(self.cancel_order, indent=4))
+                        print(json.dumps(self.limit_order, indent=4))
 
                 print(json.dumps(self.cancel_order, indent=4))  
+                print(json.dumps(self.limit_order, indent=4))  
 
         self.trading_end_time = int(time.time()*1000)+self.time_offset
         return 0
