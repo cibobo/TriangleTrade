@@ -374,11 +374,15 @@ class TriangleStrategy(object):
         # wait until the limit order is filled
         while True:
             time.sleep(1)
-            print("Waiting limit sell for bewteen coin ...")
+            # print("Waiting limit sell for bewteen coin ...")
             order_param['timestamp'] = int(time.time()*1000)+self.time_offset
             self.limit_order = BinanceRestLib.getSignedService("order",order_param)
             if 'status' in self.limit_order:
                 if self.limit_order['status'] == "FILLED":
+                    break
+                # if the trading is cancelled manually, wait 5 min for the next rund
+                if self.limit_order['status'] == "CANCELED":
+                    time.sleep(300)
                     break
             else:
                 print("Unknown status:")
@@ -550,7 +554,7 @@ def checkBestTarget():
 ref_coin = [['BTC', 'ETH'], ['ETH','BNB'], ['BTC','BNB']]
 
 # target coin symbol
-symbol = 'NEO'
+symbol = 'QTUM'
 
 begin_time = time.time()
 trading_index = 0
