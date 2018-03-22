@@ -232,7 +232,7 @@ class TriangleStrategy(object):
         self.price['BSS_price'] = self.price['between_sell']*self.price['rate_sell'] 
         self.price['BSS_win'] = self.price['BSS_price']/self.price['direct_buy']
 
-        print(self.price, " @", self.price_time)
+        # print(self.price, " @", self.price_time)
 
         # in case the BSS minuse handling fee (0.15%) is still cheeper
         if self.price['BSS_win'] > self.trigger_threshold:
@@ -259,9 +259,10 @@ class TriangleStrategy(object):
             order_param['symbol'] = self.symbol + self.coin[0]
             order_param['orderId'] = orderId
             # oder_param['recvWindow'] = 5000
-            order_param['timestamp'] = int(time.time()*1000)+self.time_offset
+            
             # wait a small time interval, until the limit trad is taken by the others
             for i in range(2):
+                order_param['timestamp'] = int(time.time()*1000)+self.time_offset
                 self.limit_order = BinanceRestLib.getSignedService("order",order_param)
                 # if the order is filled, complete the triangle trading
                 if self.limit_order['status'] == "FILLED":
@@ -283,6 +284,44 @@ class TriangleStrategy(object):
                 self.triangleTradingSellLimit()
 
                 return 1
+            
+            # check whether some part of the trading is already completed before cancel
+            # get the current price
+            thread1 = BinanceRestLib.getPriceThread(1, "Thread-1", self.symbol, self.coin[0], self.volumn[0])
+            thread1.start()
+
+            order_param['timestamp'] = int(time.time()*1000)+self.time_offset
+            self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+            thread1.join()
+
+            # calculate the trading price
+            cancel_sell_price = round(float(thread1.price['asks_1'] - self.minPrice[0]),self.price_precise[0])
+
+            # if only a part is completed and this part is bigger than the minimum Notional
+            if (self.limit_order['executedQty'] < self.limit_order['origQty']) and (self.limit_order['executedQty']*cancel_sell_price > self.minNotional):            
+                # create a limit trade to sell all target coin back to coin[0], with the sell_1 price
+                cancel_trade = BinanceRestLib.createLimitOrder(self.symbol,self.coin[0],"SELL",self.limit_order['executedQty'],cancel_sell_price,self.time_offset)
+                
+                order_param['orderId'] = cancel_trade['orderId']
+                # wait until the trading is completed
+                while True:
+                    time.sleep(1)
+                    # print("Waiting limit sell for target coin ...")
+                    order_param['timestamp'] = int(time.time()*1000)+self.time_offset
+                    self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+                    if 'status' in self.limit_order:
+                        if self.limit_order['status'] == "FILLED":
+                            break
+                        # if the trading is cancelled manually, wait 5 min for the next rund
+                        if self.limit_order['status'] == "CANCELED":
+                            print("Cancel the trading and sell the coin manually")
+                            time.sleep(300)
+                            break
+                    else:
+                        print("Unknown status:")
+                        print(json.dumps(self.limit_order, indent=4))
+
+                print(json.dumps(self.limit_order, indent=4))  
 
         self.trading_end_time = int(time.time()*1000)+self.time_offset
         return 0
@@ -382,6 +421,7 @@ class TriangleStrategy(object):
                     break
                 # if the trading is cancelled manually, wait 5 min for the next rund
                 if self.limit_order['status'] == "CANCELED":
+                    print("Cancel the trading and sell the coin manually")
                     time.sleep(300)
                     break
             else:
