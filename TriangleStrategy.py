@@ -394,11 +394,31 @@ class TriangleStrategy(object):
     
     # the sell phase always with limit trading on between coin    
     def triangleTradingSellLimit(self):
+        # get current between sell price
+        thread2 = BinanceRestLib.getPriceThread(2, "Thread-2", self.symbol, self.coin[1], self.volumn[1])
+        thread2.start()
+
         # sell between refrence coin with market price firstly
         self.response_3 = BinanceRestLib.createMarketOrder(self.coin[1],self.coin[0],"SELL",self.real_trading_volumn_between,self.time_offset)
         print(json.dumps(self.response_3, indent=4))
 
+        thread2.join()
+        
+        # create a current sell price based on current sell_1 price
+        current_between_sell = round(float(thread2.price['asks_1'] - self.minPrice[1]),self.price_precise[1])
+        # calculate minimum price to sell the between coin without loss
+        #TODO: need to get the real selling price from response3
+        minimum_between_sell = round((self.price['direct_buy']*1.0015/self.price['rate_sell']),self.price_precise[1])
+
+        print(self.price, " @", self.price_time)
+        # choose the bigger price betwen current sell price and minimum sell price as the executing selling price
+        if minimum_between_sell > current_between_sell:
+            self.price['between_sell'] = minimum_between_sell
+        else:
+            self.price['between_sell'] = current_between_sell
+
         print("begin between sell")
+        print(self.price, " @", time.time())
         
         # create limit trading for between coin
         self.response_2 = BinanceRestLib.createLimitOrder(self.symbol,self.coin[1],"SELL",self.real_buy_volumn_symbol,self.price['between_sell'],self.time_offset)
@@ -595,7 +615,7 @@ def checkBestTarget():
 ref_coin = [['BTC', 'ETH'], ['ETH','BNB'], ['BTC','BNB']]
 
 # target coin symbol
-symbol = 'QTUM'
+symbol = 'ICX'
 
 begin_time = time.time()
 trading_index = 0
@@ -611,7 +631,7 @@ while True:
         print(trading_index, " trading is completed --------------------------------------")
         test.printLog()
         test.writeLog()
-        if trading_index > 2: 
+        if trading_index > 5: 
             break
     # resnycho time offset in every 10min
     if time.time()-begin_time > 600:
