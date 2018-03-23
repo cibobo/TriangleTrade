@@ -550,7 +550,6 @@ class TriangleStrategy(object):
         print("Coin %s change is: %f" %(self.coin[0], coin_0_change))
         print("Coin %s change is: %f" %(self.coin[1], coin_1_change))
         print("Win since last trade: ", coin_0_change + coin_1_change*self.price['rate_sell'])
-        self.last_balance = current_balance
 
 
 def checkBestTarget():
