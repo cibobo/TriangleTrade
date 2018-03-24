@@ -10,10 +10,10 @@ import BinanceRestLib
 class TriangleStrategy(object):
     # minimum trading volumn for the reference coin
     # BTC: 0.001; ETH: 0.01
-    minNotional = 0.01
+    minNotional = 0.001
 
     # standard volumn used for triangle strategy
-    buy_volumn = minNotional * 2
+    buy_volumn = minNotional * 1.5
 
     # minimum trading volumn unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
     # minQty = [0.01, 0.01, 0.01]
@@ -411,6 +411,10 @@ class TriangleStrategy(object):
         minimum_between_sell = round((self.price['direct_buy']*1.0015/self.price['rate_sell']),self.price_precise[1])
 
         print(self.price, " @", self.price_time)
+        print("Saved price: ", self.price['between_sell'])
+        print("Current sell price: ", current_between_sell)
+        print("Minimum sell price: ", minimum_between_sell)
+        
         # choose the bigger price betwen current sell price and minimum sell price as the executing selling price
         if minimum_between_sell > current_between_sell:
             self.price['between_sell'] = minimum_between_sell
@@ -418,7 +422,6 @@ class TriangleStrategy(object):
             self.price['between_sell'] = current_between_sell
 
         print("begin between sell")
-        print(self.price, " @", time.time())
         
         # create limit trading for between coin
         self.response_2 = BinanceRestLib.createLimitOrder(self.symbol,self.coin[1],"SELL",self.real_buy_volumn_symbol,self.price['between_sell'],self.time_offset)
@@ -620,7 +623,7 @@ symbol = 'ICX'
 begin_time = time.time()
 trading_index = 0
 
-test = TriangleStrategy(symbol,ref_coin[1]) 
+test = TriangleStrategy(symbol,ref_coin[0]) 
 print("Begin Triangle Trading @", int(time.time()*1000)+test.time_offset)
 
 while True:
@@ -631,7 +634,7 @@ while True:
         print(trading_index, " trading is completed --------------------------------------")
         test.printLog()
         test.writeLog()
-        if trading_index > 5: 
+        if trading_index > 50: 
             break
     # resnycho time offset in every 10min
     if time.time()-begin_time > 600:
