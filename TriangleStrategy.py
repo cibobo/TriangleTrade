@@ -13,7 +13,7 @@ class TriangleStrategy(object):
     minNotional = 0.001
 
     # standard volumn used for triangle strategy
-    buy_volumn = minNotional * 1.5
+    buy_volumn = minNotional * 1.2
 
     # minimum trading volumn unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
     # minQty = [0.01, 0.01, 0.01]
@@ -245,8 +245,12 @@ class TriangleStrategy(object):
             # caclulate how much between reference coin is needed based on real buying volumn
             self.cal_trading_volumn_between = self.real_buy_volumn_symbol*self.price['between_sell']
             # use round up integer to calculate the needed between reference coin volumn
-            self.real_trading_volumn_between = (math.ceil(self.cal_trading_volumn_between/self.minQty[2]))*self.minQty[2]
+            # self.real_trading_volumn_between = (math.ceil(self.cal_trading_volumn_between/self.minQty[2]))*self.minQty[2]
 
+            # use round instead of ceil to balance the volumn of Between Coin and Main Coin
+            between_volumn_precise = int(-math.log10(self.minQty[2]))
+            self.real_trading_volumn_between = round(self.cal_trading_volumn_between,between_volumn_precise)
+            
             # buy target coin with direct reference coin in Limit Trading
             self.response_1 = BinanceRestLib.createLimitOrder(self.symbol,self.coin[0],"BUY",self.real_buy_volumn_symbol,self.price['direct_buy'],self.time_offset)
 
