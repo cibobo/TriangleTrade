@@ -47,10 +47,17 @@ class TriangleStrategy(object):
         self.volumn = []
         for i in range(3):
             self.volumn.append({'buy':self.minQty[i],'sell':self.minQty[i]})
+
+        # get all tradeable symbol from the list
+        self.getSymbolList()
     
     def getExchangeInfo(self):
         exchangeInfo = BinanceRestLib.getExchangeInfo()
-        
+        # update exchange info in local
+        # file_out = open('C:/Users/Cibobo/Documents/Coins/Python/ExchangeInfo.txt','w+')
+        # json.dump(exchangeInfo, file_out)
+        # file_out.close()
+
         # minimum trading volumn unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
         self.minQty = []
         # minimum trading price unit for the symbol|ref_coin[0], symbol|ref_coin[1] and ref_coin[1]|ref_coin[0]
@@ -114,6 +121,8 @@ class TriangleStrategy(object):
 
         self.price['rate_buy'] = thread3.price['asks_vol']
         self.price['rate_sell'] = thread3.price['bids_vol']
+        # Add buy_1 price for limit rate sell
+        self.price['rate_buy_1'] = thread3.price['asks_1']
 
         # Two trading directions are possible:
         # 1. coin[0] --> coin[1](between) --> symbol --> coin[0]: call BBS (buy buy sell)
@@ -154,7 +163,6 @@ class TriangleStrategy(object):
 
         # recalculate the buy price and win rate with sell price (bid_1) + minPrice allowed by platform
         # consider only BSS mode firstly
-        # self.price['direct_buy'] = (int((self.price['direct_sell'] + minPrice)/minPrice))*minPrice
         self.price['direct_buy'] = round(float(self.price['direct_sell_1'] + self.minPrice[0]),self.price_precise[0])
         self.price['BSS_win'] = self.price['BSS_price']/self.price['direct_buy']
 
@@ -331,7 +339,75 @@ class TriangleStrategy(object):
 
         self.trading_end_time = int(time.time()*1000)+self.time_offset
         return 0
-    
+
+    def triangleTrading(self):
+        # trading fee
+        fee_standard = 0.0005
+        fee = []       
+
+        # in case the BBS minuse handlign fee (0.15%) is still cheeper
+        if self.price['BBS_win'] > self.trigger_threshold:
+            self.trading_begin_time = int(time.time()*1000)+self.time_offset
+
+            # because of the minimum quantity of the trading, calculate how much target Coin(symbol) can be selled completely with direct price
+            self.cal_buy_volumn_symbol = self.buy_volumn/self.price['direct_sell']
+            self.real_buy_volumn_symbol = (int(self.cal_buy_volumn_symbol/self.minQty[0]))*self.minQty[0]
+
+            # caclulate how much between reference coin is needed based on real buying volumn
+            self.cal_trading_volumn_between = self.real_buy_volumn_symbol*self.price['between_buy']
+            # use round up integer to calculate the needed between reference coin volumn
+            # in between buy case, some of the win will saved in between reference coin, but in between sell case, the between reference coin will be over selled
+            self.real_trading_volumn_between = (math.ceil(self.cal_trading_volumn_between/self.minQty[2]))*self.minQty[2]
+
+            # buy between refrence coin
+            self.response_1 = BinanceRestLib.createMarketOrder(self.coin[1],self.coin[0],"BUY",self.real_trading_volumn_between,self.time_offset)
+            fee.append(self.real_trading_volumn_between*fee_standard*self.price['rate_buy'])
+            
+            # buy target coin with between reference coin
+            self.response_2 = BinanceRestLib.createMarketOrder(self.symbol,self.coin[1],"BUY",self.real_buy_volumn_symbol,self.time_offset)
+            fee.append(self.real_buy_volumn_symbol*fee_standard*self.price['BBS_price'])
+
+            # sell target coin with direct reference coin
+            self.response_3 = BinanceRestLib.createMarketOrder(self.symbol,self.coin[0],"SELL",self.real_buy_volumn_symbol,self.time_offset)
+            fee.append(self.real_buy_volumn_symbol*fee_standard*self.price['direct_sell'])
+
+            self.trading_end_time = int(time.time()*1000)+self.time_offset
+            
+        # in case the BSS minuse handling fee (0.15%) is still cheeper
+        if self.price['BSS_win'] > self.trigger_threshold:
+            self.trading_begin_time = int(time.time()*1000)+self.time_offset
+
+            # because of the minimum quantity of the trading, calculate how much target Coin(symbol) should be buy with triangle price
+            self.cal_buy_volumn_symbol = self.buy_volumn/self.price['direct_buy']
+            self.real_buy_volumn_symbol = (int(self.cal_buy_volumn_symbol/self.minQty[0]))*self.minQty[0]
+
+            # caclulate how much between reference coin is needed based on real buying volumn
+            self.cal_trading_volumn_between = self.real_buy_volumn_symbol*self.price['between_sell']
+            # use round up integer to calculate the needed between reference coin volumn
+            # in BBS buy case, some of the win will saved in between reference coin, but in BSS case, the between reference coin will be over selled
+            self.real_trading_volumn_between = (math.ceil(self.cal_trading_volumn_between/self.minQty[2]))*self.minQty[2]
+
+            # buy target coin with direct reference coin
+            self.response_1 = BinanceRestLib.createMarketOrder(self.symbol,self.coin[0],"BUY",self.real_buy_volumn_symbol,self.time_offset)
+            fee.append(self.real_buy_volumn_symbol*fee_standard*self.price['direct_buy'])
+
+            # sell target coin with between reference coin
+            self.response_2 = BinanceRestLib.createMarketOrder(self.symbol,self.coin[1],"SELL",self.real_buy_volumn_symbol,self.time_offset)
+            fee.append(self.real_buy_volumn_symbol*fee_standard*self.price['BSS_price'])
+
+            # sell between refrence coin
+            self.response_3 = BinanceRestLib.createMarketOrder(self.coin[1],self.coin[0],"SELL",self.real_trading_volumn_between,self.time_offset)
+            fee.append(self.real_trading_volumn_between*fee_standard*self.price['rate_sell'])
+            
+            self.trading_end_time = int(time.time()*1000)+self.time_offset
+
+        print(self.price, " @", self.price_time)
+
+        if self.price['BBS_win'] > self.trigger_threshold or self.price['BSS_win'] > self.trigger_threshold:
+            return 1
+        else:
+            return 0
+
     # check whether with there is still win rate with the current sell price, if not create a limit order instead of direct sell
     def triangleTradingSell(self, price_thread):
         # synchro with the tread
@@ -374,7 +450,6 @@ class TriangleStrategy(object):
             order_param['timestamp'] = int(time.time()*1000)+self.time_offset
             # check the order state
             self.limit_order = BinanceRestLib.getSignedService("order",order_param)
-            # wait until the limit order is filled
             # wait until the limit order is filled
             while True:
                 time.sleep(1)
@@ -426,9 +501,11 @@ class TriangleStrategy(object):
             self.price['between_sell'] = current_between_sell
 
         print("begin between sell")
-        
+
         # create limit trading for between coin
         self.response_2 = BinanceRestLib.createLimitOrder(self.symbol,self.coin[1],"SELL",self.real_buy_volumn_symbol,self.price['between_sell'],self.time_offset)
+
+        print(json.dumps(self.response_2, indent=4))
 
         # get the order id
         orderId = self.response_2['orderId']
@@ -460,6 +537,82 @@ class TriangleStrategy(object):
         print(json.dumps(self.limit_order, indent=4))
         
         self.trading_end_time = int(time.time()*1000)+self.time_offset
+
+    # check open orders on ETHBTC to identify, whether a remote start is requested
+    def isRemoteStart(self):
+        # create parameters
+        param = {}
+        param['symbol'] = 'ETHBTC'
+        param['recvWindow'] = 5000
+        param['timestamp'] = int(time.time()*1000)+self.time_offset
+        # get all open orders for this symbol
+        result = BinanceRestLib.getSignedService("openOrders",param)
+        print(json.dumps(result, indent=4))
+
+        # if no remote start request, return directly
+        if len(result) == 0:
+            return False
+        
+        # get the last open order, which contains remote start info
+        last_open = result[-1]
+        orderId = last_open["orderId"]
+        startInfo = str(last_open["price"])
+
+        # check wether the  first position is 1 (it could be changed if ETHBTC rate is stark changed)
+        if startInfo[0] != '1':
+            return False
+        
+        # use 2 ~ 4 position to find the trading symbol
+        symbol_index = int(startInfo[2:5])
+        self.symbol = self.symbol_list[symbol_index]
+
+        # use 5 ~ 8 position to find the trading times
+        self.trading_times = int(startInfo[5:8])
+
+        # cancle this trading, since it is only used to translate info
+        cancel_result = BinanceRestLib.cancelOrder("ETH","BTC",orderId,self.time_offset)
+        print(json.dumps(cancel_result, indent=4))
+
+        return True
+
+    def getSymbolList(self):
+        symbol_file = open('TriangleSymbols2.txt','r')
+        self.symbol_list = symbol_file.read().split(',')
+        symbol_file.close()
+
+    def updateTimeOffset(self):
+        self.time_offset = BinanceRestLib.getServerTimeOffset()
+        print("Update time offset to: ", self.time_offset)
+
+    def runTriangleStrategy(self):
+        begin_time = time.time()
+        trading_index = 0
+
+        while True:
+            self.getTrianglePrice()
+            result = self.triangleTradingLimitTwice()
+            # if one trading is compelted
+            if result == 1:
+                print(trading_index, " trading is completed --------------------------------------")
+                trading_index += 1
+                # output trading into to console and save it into to file
+                self.printLog()
+                self.writeLog()
+                # finish this trading group if the defined trading times is reached
+                if trading_index > self.trading_times:
+                    break
+
+            # resnycho time offset in every 10min
+            if time.time()-begin_time > 600:
+                self.updateTimeOffset()
+                begin_time = time.time()
+                print("Resynchronise time offset with: ", self.time_offset)
+
+            time.sleep(1)
+        
+        print("Trading mission with ", self.trading_times, " times trading is completed")
+
+            
 
     def writeLog(self):
         file_out = open('TradingInfo.log','a')
@@ -510,7 +663,7 @@ class TriangleStrategy(object):
         file_out.write("Coin %s change is: %f \n" %(self.coin[0], coin_0_change))
         file_out.write("Coin %s change is: %f \n" %(self.coin[1], coin_1_change))
         file_out.write("Win since beginning: %f \n" %(coin_0_change + coin_1_change*self.price['rate_sell']))
-        
+
         # calculate balance change to the last trade
         coin_0_change = float(current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
         coin_1_change = float(current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
@@ -564,13 +717,13 @@ class TriangleStrategy(object):
         print(current_balance)
         print()
 
-        # calculate balance change
+        # calculate balance change to the beginning
         coin_0_change = float(current_balance[self.coin[0]]) - float(self.begin_balance[self.coin[0]])
         coin_1_change = float(current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
         print("Coin %s change is: %f" %(self.coin[0], coin_0_change))
         print("Coin %s change is: %f" %(self.coin[1], coin_1_change))
         print("Win since beginning: ", coin_0_change + coin_1_change*self.price['rate_sell'])
-        
+
         # calculate balance change to the last trade
         coin_0_change = float(current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
         coin_1_change = float(current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
@@ -580,6 +733,8 @@ class TriangleStrategy(object):
 
 
 def checkBestTarget():
+    ref_coin = [['BTC', 'ETH'], ['ETH','BNB'], ['BTC','BNB']]
+
     symbol_file = open('C:/Users/Cibobo/Documents/Coins/Python/TriangleSymbols.txt','r')
     symbols = symbol_file.read().split(',')
     print(symbols)
@@ -618,36 +773,4 @@ def checkBestTarget():
     print(sort_BBS)
 
 
-# possible triangle trading combination
-ref_coin = [['BTC', 'ETH'], ['ETH','BNB'], ['BTC','BNB']]
 
-# target coin symbol
-symbol = 'ICX'
-
-begin_time = time.time()
-trading_index = 0
-
-test = TriangleStrategy(symbol,ref_coin[0]) 
-print("Begin Triangle Trading @", int(time.time()*1000)+test.time_offset)
-
-while True:
-    test.getTrianglePrice()
-    result = test.triangleTradingLimitTwice()
-    if result == 1:
-        trading_index += 1
-        print(trading_index, " trading is completed --------------------------------------")
-        test.printLog()
-        test.writeLog()
-        if trading_index > 50: 
-            break
-    # resnycho time offset in every 10min
-    if time.time()-begin_time > 600:
-        test.time_offset = BinanceRestLib.getServerTimeOffset()
-        begin_time = time.time()
-        print("Resynchronise time offset with: ", test.time_offset)
-        # break
-    time.sleep(1)
-
-test.printLog()
-test.writeLog()
-print("end")
