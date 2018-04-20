@@ -483,22 +483,28 @@ class TriangleStrategy(object):
 
         thread2.join()
         
-        # create a current sell price based on current sell_1 price
-        current_between_sell = round(float(thread2.price['asks_1'] - self.minPrice[1]),self.price_precise[1])
-        # calculate minimum price to sell the between coin without loss
-        #TODO: need to get the real selling price from response3
-        minimum_between_sell = round((self.price['direct_buy']*1.0015/self.price['rate_sell']),self.price_precise[1])
+        # # create a current sell price based on current sell_1 price
+        # current_between_sell = round(float(thread2.price['asks_1'] - self.minPrice[1]),self.price_precise[1])
+        # # calculate minimum price to sell the between coin without loss
+        # #TODO: need to get the real selling price from response3
+        # minimum_between_sell = round((self.price['direct_buy']*1.0015/self.price['rate_sell']),self.price_precise[1])
 
-        print(self.price, " @", self.price_time)
-        print("Saved price: ", self.price['between_sell'])
-        print("Current sell price: ", current_between_sell)
-        print("Minimum sell price: ", minimum_between_sell)
+        # print(self.price, " @", self.price_time)
+        # print("Saved price: ", self.price['between_sell'])
+        # print("Current sell price: ", current_between_sell)
+        # print("Minimum sell price: ", minimum_between_sell)
         
-        # choose the bigger price betwen current sell price and minimum sell price as the executing selling price
-        if minimum_between_sell > current_between_sell:
-            self.price['between_sell'] = minimum_between_sell
-        else:
-            self.price['between_sell'] = current_between_sell
+        # # choose the bigger price betwen current sell price and minimum sell price as the executing selling price
+        # if minimum_between_sell > current_between_sell:
+        #     self.price['between_sell'] = minimum_between_sell
+        # else:
+        #     self.price['between_sell'] = current_between_sell
+
+        # use a conservative trading price to garantee the continue tradings
+        minimum_between_sell = round((self.price['direct_buy']*1.0021/self.price['rate_sell']),self.price_precise[1])
+        self.price['between_sell'] = minimum_between_sell
+        print("Saved price: ", self.price['between_sell'])
+        print("Minimum sell price: ", minimum_between_sell)
 
         print("begin between sell")
 
