@@ -618,6 +618,20 @@ class TriangleStrategy(object):
         
         print("Trading mission with ", self.trading_times, " times trading is completed")
 
+        # calculate balance
+        coin_0_change = float(self.current_balance[self.coin[0]]) - float(self.begin_balance[self.coin[0]])
+        coin_1_change = float(self.current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
+        coin_0_balance = coin_0_change + coin_1_change*self.price['rate_sell']
+        win_rate = (coin_0_balance/0.0012) - (0.0015*self.trading_times)
+
+        # create a info limit trading to notice the remote side, that the trading group is completed
+        price = round(win_rate, 6) + 3
+        response = BinanceRestLib.createLimitOrder("ETH","BTC","SELL",0.011,price,self.time_offset)
+        print(response)
+        
+        # reset the begin balance
+        self.begin_balance = self.current_balance
+
             
 
     def writeLog(self):
@@ -659,24 +673,23 @@ class TriangleStrategy(object):
         file_out.write("Before trading --------------------------------\n")
         json.dump(self.begin_balance, file_out)
         file_out.write("\nAfter trading --------------------------------\n")
-        current_balance = BinanceRestLib.getBalance(self.balance_coin_list,self.time_offset)
-        json.dump(current_balance, file_out)
+        json.dump(self.current_balance, file_out)
         file_out.write("\n")
 
         # calculate balance change
-        coin_0_change = float(current_balance[self.coin[0]]) - float(self.begin_balance[self.coin[0]])
-        coin_1_change = float(current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
+        coin_0_change = float(self.current_balance[self.coin[0]]) - float(self.begin_balance[self.coin[0]])
+        coin_1_change = float(self.current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
         file_out.write("Coin %s change is: %f \n" %(self.coin[0], coin_0_change))
         file_out.write("Coin %s change is: %f \n" %(self.coin[1], coin_1_change))
         file_out.write("Win since beginning: %f \n" %(coin_0_change + coin_1_change*self.price['rate_sell']))
 
         # calculate balance change to the last trade
-        coin_0_change = float(current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
-        coin_1_change = float(current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
+        coin_0_change = float(self.current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
+        coin_1_change = float(self.current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
         file_out.write("Coin %s change is: %f \n" %(self.coin[0], coin_0_change))
         file_out.write("Coin %s change is: %f \n" %(self.coin[1], coin_1_change))
         file_out.write("Win since last trade: %f \n" %(coin_0_change + coin_1_change*self.price['rate_sell']))
-        self.last_balance = current_balance
+        self.last_balance = self.current_balance
 
         file_out.close()
 
@@ -719,20 +732,20 @@ class TriangleStrategy(object):
         print("Before trading --------------------------------")
         print(self.begin_balance)
         print("After trading --------------------------------")
-        current_balance = BinanceRestLib.getBalance(self.balance_coin_list, self.time_offset)
-        print(current_balance)
+        self.current_balance = BinanceRestLib.getBalance(self.balance_coin_list, self.time_offset)
+        print(self.current_balance)
         print()
 
         # calculate balance change to the beginning
-        coin_0_change = float(current_balance[self.coin[0]]) - float(self.begin_balance[self.coin[0]])
-        coin_1_change = float(current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
+        coin_0_change = float(self.current_balance[self.coin[0]]) - float(self.begin_balance[self.coin[0]])
+        coin_1_change = float(self.current_balance[self.coin[1]]) - float(self.begin_balance[self.coin[1]])
         print("Coin %s change is: %f" %(self.coin[0], coin_0_change))
         print("Coin %s change is: %f" %(self.coin[1], coin_1_change))
         print("Win since beginning: ", coin_0_change + coin_1_change*self.price['rate_sell'])
 
         # calculate balance change to the last trade
-        coin_0_change = float(current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
-        coin_1_change = float(current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
+        coin_0_change = float(self.current_balance[self.coin[0]]) - float(self.last_balance[self.coin[0]])
+        coin_1_change = float(self.current_balance[self.coin[1]]) - float(self.last_balance[self.coin[1]])
         print("Coin %s change is: %f" %(self.coin[0], coin_0_change))
         print("Coin %s change is: %f" %(self.coin[1], coin_1_change))
         print("Win since last trade: ", coin_0_change + coin_1_change*self.price['rate_sell'])

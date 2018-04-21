@@ -1,4 +1,5 @@
 import time
+import datetime
 
 import TriangleStrategy
 
@@ -26,7 +27,7 @@ while True:
     if time.time()-begin_time > 600:
         tradInstance.updateTimeOffset()
         begin_time = time.time()
-        print("Resynchronise time offset with: ", tradInstance.time_offset)
+        print("Resynchronise time offset with: ", tradInstance.time_offset, " @ ", datetime.datetime.now())
         # break
     time.sleep(20)
 
