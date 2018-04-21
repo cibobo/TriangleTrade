@@ -591,6 +591,9 @@ class TriangleStrategy(object):
         print("Update time offset to: ", self.time_offset)
 
     def runTriangleStrategy(self):
+        # update exchange info
+        self.getExchangeInfo()
+
         begin_time = time.time()
         trading_index = 0
 
@@ -630,9 +633,7 @@ class TriangleStrategy(object):
         print(response)
         
         # reset the begin balance
-        self.begin_balance = self.current_balance
-
-            
+        self.begin_balance = self.current_balance       
 
     def writeLog(self):
         file_out = open('TradingInfo.log','a')
