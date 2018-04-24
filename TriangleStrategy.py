@@ -276,12 +276,16 @@ class TriangleStrategy(object):
             for i in range(2):
                 order_param['timestamp'] = int(time.time()*1000)+self.time_offset
                 self.limit_order = BinanceRestLib.getSignedService("order",order_param)
-                # if the order is filled, complete the triangle trading
-                if self.limit_order['status'] == "FILLED":
-                    # finish the selling process
-                    self.triangleTradingSellLimit()
-                    
-                    return 1
+                if 'status' in self.limit_order:
+                    # if the order is filled, complete the triangle trading
+                    if self.limit_order['status'] == "FILLED":
+                        # finish the selling process
+                        self.triangleTradingSellLimit()
+                        
+                        return 1
+                else:
+                    print("Unknown response:")
+                    print(json.dumps(self.limit_order, indent=4))
 
                 print("End of %dth loop" %(i))
 
