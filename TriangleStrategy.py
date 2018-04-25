@@ -526,6 +526,8 @@ class TriangleStrategy(object):
         order_param['timestamp'] = int(time.time()*1000)+self.time_offset
         # check the order state
         self.limit_order = BinanceRestLib.getSignedService("order",order_param)
+
+        begin_time = time.time()
         # wait until the limit order is filled
         while True:
             time.sleep(1)
@@ -543,6 +545,12 @@ class TriangleStrategy(object):
             else:
                 print("Unknown status:")
                 print(json.dumps(self.limit_order, indent=4))
+
+            # resnycho time offset in every 10min
+            if time.time()-begin_time > 600:
+                self.updateTimeOffset()
+                begin_time = time.time()
+                print("Resynchronise time offset during the limit sell of bewteen coin with: ", self.time_offset)
 
         print(json.dumps(self.limit_order, indent=4))
         
