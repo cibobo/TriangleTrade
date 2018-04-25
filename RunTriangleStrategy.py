@@ -7,7 +7,7 @@ import TriangleStrategy
 ref_coin = [['BTC', 'ETH'], ['ETH','BNB'], ['BTC','BNB']]
 
 # target coin symbol
-symbol = 'XRP'
+symbol = 'BNB'
 
 begin_time = time.time()
 
