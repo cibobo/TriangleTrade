@@ -527,6 +527,7 @@ class TriangleStrategy(object):
         # check the order state
         self.limit_order = BinanceRestLib.getSignedService("order",order_param)
 
+        begin_waiting_time = time.time()
         begin_time = time.time()
         # wait until the limit order is filled
         while True:
@@ -551,6 +552,14 @@ class TriangleStrategy(object):
                 self.updateTimeOffset()
                 begin_time = time.time()
                 print("Resynchronise time offset during the limit sell of bewteen coin with: ", self.time_offset)
+                
+                # if the limit sell is already hold more than 3hours, just keep the current limit sell and restart a round once again.
+                if time.time()-begin_waiting_time > 10800:
+                    current_price = BinanceRestLib.getCurrentPrice(self.symbol, self.coin[1], self.volumn[1])
+                    print("Special case, that a limit trade is not taken for a long time. ", current_price['asks_vol'])
+                    # in case the current limit sell price is 5% less than the expected one
+                    if current_price['asks_vol']/self.price['between_sell'] < 0.95:
+                        break
 
         print(json.dumps(self.limit_order, indent=4))
         
@@ -568,7 +577,7 @@ class TriangleStrategy(object):
         print(json.dumps(result, indent=4))
 
         # if no remote start request, return directly
-        if len(result) == 0:
+        if (len(result) == 0) or ('code' in result):
             return False
         
         # get the last open order, which contains remote start info
