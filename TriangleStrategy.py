@@ -649,7 +649,7 @@ class TriangleStrategy(object):
         win_rate = (coin_0_balance/0.0012) - (0.0015*self.trading_times)
 
         # create a info limit trading to notice the remote side, that the trading group is completed
-        price = round(win_rate, 6) + 3
+        price = round(win_rate, 6) + 8
         response = BinanceRestLib.createLimitOrder("ETH","BTC","SELL",0.011,price,self.time_offset)
         print(response)
         
