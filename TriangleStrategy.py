@@ -24,6 +24,9 @@ class TriangleStrategy(object):
     # volumn toloranz (0.05%) to match the request delay, that some one has already buy/sell with the detected price
     volumn_toloranz = 1.1
 
+    # target win rate
+    target_win_rate = 0.0006
+
     # define trigger interval for trading
     trigger_threshold = 1.002
     def __init__(self, symbol, coin):
@@ -505,7 +508,7 @@ class TriangleStrategy(object):
         #     self.price['between_sell'] = current_between_sell
 
         # use a conservative trading price to garantee the continue tradings
-        minimum_between_sell = round((self.price['direct_buy']*1.0021/self.price['rate_sell']),self.price_precise[1])
+        minimum_between_sell = round((self.price['direct_buy']*(1.0015+self.target_win_rate)/self.price['rate_sell']),self.price_precise[1])
         self.price['between_sell'] = minimum_between_sell
         print("Saved price: ", self.price['between_sell'])
         print("Minimum sell price: ", minimum_between_sell)
@@ -537,6 +540,9 @@ class TriangleStrategy(object):
             self.limit_order = BinanceRestLib.getSignedService("order",order_param)
             if 'status' in self.limit_order:
                 if self.limit_order['status'] == "FILLED":
+                    # update the basic buy volumn with last win
+                    self.buy_volumn *= (1+self.target_win_rate)
+                    print("New Basic Buy Volumn is: ", self.buy_volumn)
                     break
                 # if the trading is cancelled manually, wait 5 min for the next rund
                 if self.limit_order['status'] == "CANCELED":
